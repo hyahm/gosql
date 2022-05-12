@@ -1,4 +1,4 @@
-package gomysql
+package gosql
 
 import "errors"
 

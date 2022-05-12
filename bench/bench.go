@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyahm/gomysql"
+	"github.com/hyahm/gosql"
 )
 
 func main() {
@@ -25,7 +25,7 @@ const Num = 1000
 func Insert8(wg *sync.WaitGroup) {
 
 	start := time.Now()
-	conf := &gomysql.Sqlconfig{
+	conf := &gosql.Sqlconfig{
 		Host:               "192.168.50.211",
 		UserName:           "cander",
 		Password:           "123456",
@@ -63,7 +63,7 @@ func Insert8(wg *sync.WaitGroup) {
 // Insert5 mysql5 的插入
 func Insert5(wg *sync.WaitGroup) {
 	start := time.Now()
-	conf := &gomysql.Sqlconfig{
+	conf := &gosql.Sqlconfig{
 		Host:               "127.0.0.1",
 		UserName:           "root",
 		Password:           "123456",

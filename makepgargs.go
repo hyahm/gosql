@@ -1,4 +1,4 @@
-package gomysql
+package gosql
 
 import (
 	"database/sql"
@@ -125,7 +125,7 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 						json.Unmarshal(b, j.Interface())
 						new.Field(index).Set(j)
 					default:
-						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gomysql, kind: ", kind)
+						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gosql, kind: ", kind)
 					}
 				} else {
 					fmt.Println("can not set: ", index)
@@ -528,7 +528,7 @@ func fillpg(dest interface{}, rows pgx.Rows) error {
 						json.Unmarshal([]byte(fmt.Sprintf("%v", b)), j.Interface())
 						new.Field(index).Set(j)
 					default:
-						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gomysql, kind: ", kind)
+						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gosql, kind: ", kind)
 					}
 				} else {
 					fmt.Println("can not set: ", index)

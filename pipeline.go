@@ -1,3 +1,3 @@
-package gomysql
+package gosql
 
 // var ch chan struct{}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hyahm/gomysql"
+	"github.com/hyahm/gosql"
 )
 
 type Account struct {
@@ -14,16 +14,14 @@ type Account struct {
 	Gender   bool   `json:"gender" db:"gender"`
 }
 
-var (
-	conf = &gomysql.Sqlconfig{
-		Host:     "192.168.101.13",
-		Port:     5432,
-		UserName: "test",
-		Password: "123456",
-		DbName:   "mydb",
-		Debug:    true,
-	}
-)
+var conf = &gosql.Sqlconfig{
+	Host:     "192.168.101.13",
+	Port:     5432,
+	UserName: "test",
+	Password: "123456",
+	DbName:   "mydb",
+	Debug:    true,
+}
 
 func main() {
 	pg, err := conf.NewPGPool()

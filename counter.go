@@ -1,4 +1,4 @@
-package gomysql
+package gosql
 
 type Counter interface {
 	uint8 | uint16 | uint | int | uint32 | uint64 |
