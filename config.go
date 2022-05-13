@@ -101,7 +101,7 @@ func (s *Sqlconfig) CreateDB(name string) (*Db, error) {
 }
 
 func (s *Sqlconfig) connPg(conf string) (*PGConn, error) {
-	conn, err := pgxpool.Connect(context.Background(), s.GetPostgreDataSource())
+	conn, err := pgxpool.Connect(context.Background(), s.GetPostgreDNS())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)

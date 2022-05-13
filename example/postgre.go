@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/hyahm/gosql"
@@ -14,8 +16,17 @@ type Account struct {
 	Gender   bool   `json:"gender" db:"gender"`
 }
 
+var accountTable = `
+create table account (
+	id bigserial primary key,
+	username varchar(30) not null default '',
+	password varchar(30) not null default '',
+	gender bool not null default false
+);
+`
+
 var conf = &gosql.Sqlconfig{
-	Host:     "192.168.50.250",
+	Host:     "192.168.101.13",
 	Port:     5432,
 	UserName: "test",
 	Password: "123456",
@@ -30,6 +41,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
 	}
+	_, err = pg.Exec(context.Background(), accountTable)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// var id int64
 	// row := pg.QueryRow(context.Background(), "insert into account(username, password) values($1, $2) returning id", "Aaa", "bbb")
 	// if err != nil {
@@ -37,6 +52,7 @@ func main() {
 	// }
 	// row.Scan(&id)
 	// fmt.Println(id)
+
 	addAccount := Account{
 		Username: "99999",
 		Gender:   true,
