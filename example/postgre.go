@@ -15,12 +15,11 @@ type Account struct {
 }
 
 var conf = &gosql.Sqlconfig{
-	Host:     "192.168.101.13",
+	Host:     "192.168.50.250",
 	Port:     5432,
 	UserName: "test",
 	Password: "123456",
-	DbName:   "mydb",
-	Debug:    true,
+	DbName:   "test",
 }
 
 func main() {

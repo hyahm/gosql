@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,9 +53,27 @@ func (s *Sqlconfig) GetMysqlDataSource() string {
 func (s *Sqlconfig) GetPostgreDataSource() string {
 	s.setpgDefaultConfig()
 	//判断是否是空map
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
-		s.UserName, s.Password, s.Host, s.Port, s.DbName,
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?pool_max_conns=%d&pool_min_conns=%d&pool_max_conn_lifetime=%v&pool_max_conn_idle_time=%v",
+		s.UserName, s.Password, s.Host, s.Port, s.DbName, s.MaxOpenConns, s.MaxIdleConns, s.ConnMaxLifetime, s.ConnMaxLifetime,
 	)
+}
+
+func (s *Sqlconfig) GetPostgreDNS() string {
+	s.setpgDefaultConfig()
+	// user=jack password=secret host=pg.example.com port=5432 dbname=mydb sslmode=verify-ca pool_max_conns=10
+	dns := make([]string, 0)
+	dns = append(dns, fmt.Sprintf("user=%s", s.UserName))
+	dns = append(dns, fmt.Sprintf("password=%s", s.Password))
+	dns = append(dns, fmt.Sprintf("host=%s", s.Host))
+	dns = append(dns, fmt.Sprintf("port=%d", s.Port))
+	dns = append(dns, fmt.Sprintf("dbname=%s", s.DbName))
+	dns = append(dns, fmt.Sprintf("pool_max_conns=%d", s.MaxOpenConns))
+	dns = append(dns, fmt.Sprintf("pool_min_conns=%d", s.MaxIdleConns))
+	dns = append(dns, fmt.Sprintf("pool_max_conn_lifetime=%s", s.ConnMaxLifetime))
+	dns = append(dns, fmt.Sprintf("pool_max_conn_idle_time=%s", s.ConnMaxLifetime))
+
+	//判断是否是空map
+	return strings.Join(dns, " ")
 }
 
 // 如果tag 是空的, 那么默认dbname
@@ -63,7 +82,7 @@ func (s *Sqlconfig) NewMysqlDb() (*Db, error) {
 }
 
 func (s *Sqlconfig) NewPGPool() (*PGConn, error) {
-	return s.connPg(s.GetPostgreDataSource())
+	return s.connPg(s.GetPostgreDNS())
 }
 
 // 不存在就创建database
@@ -198,5 +217,11 @@ func (s *Sqlconfig) setpgDefaultConfig() {
 	}
 	if s.DbName == "" {
 		s.DbName = "postgres"
+	}
+	if s.MaxOpenConns == 0 {
+		s.MaxOpenConns = 10
+	}
+	if s.MaxIdleConns == 0 {
+		s.MaxOpenConns = 1
 	}
 }
