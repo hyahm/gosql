@@ -58,7 +58,7 @@ func (d *PGConn) InsertInterfaceWithID(dest interface{}, cmd string, args ...int
 
 func (d *PGConn) insertInterface(dest interface{}, cmd string, args ...interface{}) Result {
 	// 插入到args之前  dest 是struct或切片的指针
-	newcmd, newargs, err := pginsertInterfaceSql(dest, cmd, args...)
+	newcmd, newargs, err := insertInterfaceSql(dest, cmd, args...)
 	if err != nil {
 		return Result{Err: err}
 	}
@@ -67,7 +67,7 @@ func (d *PGConn) insertInterface(dest interface{}, cmd string, args ...interface
 
 func (d *PGConn) insertWithoutInterface(dest interface{}, cmd string, args ...interface{}) Result {
 	// 插入到args之前  dest 是struct或切片的指针
-	newcmd, newargs, err := pginsertInterfaceSql(dest, cmd, args...)
+	newcmd, newargs, err := insertInterfaceSql(dest, cmd, args...)
 	if err != nil {
 		return Result{Err: err}
 	}
@@ -76,8 +76,12 @@ func (d *PGConn) insertWithoutInterface(dest interface{}, cmd string, args ...in
 
 func (d *PGConn) Insert(cmd string, args ...interface{}) Result {
 	res := Result{
-		Sql: ToPGSql(cmd, args...),
+		Sql: ToSql(cmd, args...),
 	}
+	for i := 1; i <= len(args); i++ {
+		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
+	}
+
 	result := d.QueryRow(d.Ctx, cmd, args...)
 	err := result.Scan(&res.LastInsertId)
 	if err != nil {
@@ -89,8 +93,12 @@ func (d *PGConn) Insert(cmd string, args ...interface{}) Result {
 
 func (d *PGConn) InsertWithoutId(cmd string, args ...interface{}) Result {
 	res := Result{
-		Sql: ToPGSql(cmd, args...),
+		Sql: ToSql(cmd, args...),
 	}
+	for i := 1; i <= len(args); i++ {
+		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
+	}
+
 	result, err := d.Exec(d.Ctx, cmd, args...)
 	res.RowsAffected = result.RowsAffected()
 	res.Err = err
@@ -107,12 +115,13 @@ func (d *PGConn) UpdateInterface(dest interface{}, cmd string, args ...interface
 }
 
 func (d *PGConn) Update(cmd string, args ...interface{}) Result {
-	for i := 1; i <= len(cmd); i++ {
-		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
-	}
 	res := Result{}
 	if d.debug {
 		res.Sql = ToPGSql(cmd, args...)
+	}
+
+	for i := 1; i <= len(args); i++ {
+		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
 	}
 
 	tags, err := d.Exec(d.Ctx, cmd, args...)
@@ -148,7 +157,7 @@ func (d *PGConn) InsertInterfaceWithoutID(dest interface{}, cmd string, args ...
 
 		arguments := make([]interface{}, 0)
 		for i := 0; i < length; i++ {
-			newcmd, newargs, err := pginsertInterfaceSql(value.Index(i).Interface(), cmd, args...)
+			newcmd, newargs, err := insertInterfaceSql(value.Index(i).Interface(), cmd, args...)
 			if err != nil {
 				res.Err = err
 				return res
