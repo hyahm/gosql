@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/hyahm/gosql"
@@ -41,10 +40,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
 	}
-	_, err = pg.Exec(context.Background(), accountTable)
-	if err != nil {
-		log.Fatal(err)
-	}
+	pg.Exec(context.Background(), accountTable)
 	// var id int64
 	// row := pg.QueryRow(context.Background(), "insert into account(username, password) values($1, $2) returning id", "Aaa", "bbb")
 	// if err != nil {
@@ -53,14 +49,14 @@ func main() {
 	// row.Scan(&id)
 	// fmt.Println(id)
 
-	addAccount := Account{
-		Username: "99999",
-		Gender:   true,
-	}
+	// addAccount := Account{
+	// 	Username: "99999",
+	// 	Gender:   true,
+	// }
 
-	res := pg.InsertInterfaceWithID(addAccount, "insert into account($key) values($value) returning id")
-	fmt.Println(res.Sql)
-	fmt.Println(res)
+	// res := pg.InsertInterfaceWithID(addAccount, "insert into account($key) values($value) returning id")
+	// fmt.Println(res.Sql)
+	// fmt.Println(res)
 
 	// res := pg.UpdateInterface(account, "update account set $set where id=11")
 	// fmt.Println(res.Sql)

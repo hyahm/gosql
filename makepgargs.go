@@ -17,7 +17,7 @@ import (
 // 修改： force, counter  增量器
 // 删除 修改 需要 primarykey
 
-func pgfill(dest interface{}, rows *sql.Rows) error {
+func pgfill(dest interface{}, rows pgx.Rows) error {
 	value := reflect.ValueOf(dest)
 	typ := reflect.TypeOf(dest)
 	// cols := 0
@@ -43,12 +43,12 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 	// ss 是切片
 	ss := value.Elem()
 	names := make(map[string]int)
-	cls, _ := rows.Columns()
+	cls := rows.FieldDescriptions()
 	for i, v := range cls {
-		names[v] = i
+		names[string(v.Name)] = i
 	}
 
-	vals := make([][]byte, len(cls))
+	vals := make([]interface{}, len(cls))
 	//这里表示一行填充数据
 	scans := make([]interface{}, len(cls))
 	//这里scans引用vals，把数据填充到[]byte里
@@ -64,6 +64,7 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 			fmt.Println(err)
 			continue
 		}
+		fmt.Println("44444444")
 		new := reflect.New(typ)
 		if !isPtr {
 			new = new.Elem()
@@ -82,40 +83,41 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 			}
 
 			if v, ok := names[tags[0]]; ok {
+				fmt.Println(66666)
 				if new.Field(index).CanSet() {
 					// 判断这一列的值
 					kind := new.Field(index).Kind()
-					b := *(scans[v]).(*[]byte)
+					b := reflect.ValueOf(scans[v]).Elem().Interface()
 					switch kind {
 					case reflect.String:
-						new.Field(index).SetString(string(b))
+						new.Field(index).SetString(fmt.Sprintf("%v", b))
 					case reflect.Int64:
-						i64, _ := strconv.ParseInt(string(b), 10, 64)
+						i64, _ := strconv.ParseInt(fmt.Sprintf("%v", b), 10, 64)
 						new.Field(index).SetInt(i64)
 					case reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
-						i, _ := strconv.Atoi(string(b))
+						i, _ := strconv.Atoi(fmt.Sprintf("%v", b))
 						new.Field(index).Set(reflect.ValueOf(i))
 
 					case reflect.Bool:
-						t, _ := strconv.ParseBool(string(b))
+						t, _ := strconv.ParseBool(fmt.Sprintf("%v", b))
 						new.Field(index).SetBool(t)
 
 					case reflect.Float32:
-						f64, _ := strconv.ParseFloat(string(b), 32)
+						f64, _ := strconv.ParseFloat(fmt.Sprintf("%v", b), 32)
 						new.Field(index).SetFloat(f64)
 
 					case reflect.Float64:
-						f64, _ := strconv.ParseFloat(string(b), 64)
+						f64, _ := strconv.ParseFloat(fmt.Sprintf("%v", b), 64)
 						new.Field(index).SetFloat(f64)
 
 					case reflect.Struct:
 						j := reflect.New(new.Field(index).Type())
-						json.Unmarshal(b, j.Interface())
+						json.Unmarshal([]byte(fmt.Sprintf("%v", b)), j.Interface())
 						new.Field(index).Set(j.Elem())
 
 					case reflect.Slice, reflect.Interface:
 						j := reflect.New(new.Field(index).Type())
-						err = json.Unmarshal(b, j.Interface())
+						err = json.Unmarshal([]byte(fmt.Sprintf("%v", b)), j.Interface())
 						if err != nil {
 							new.Field(index).Set(reflect.MakeSlice(new.Field(index).Type(), 0, 0))
 							continue
@@ -124,7 +126,7 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 
 					case reflect.Ptr:
 						j := reflect.New(new.Field(index).Type())
-						json.Unmarshal(b, j.Interface())
+						json.Unmarshal([]byte(fmt.Sprintf("%v", b)), j.Interface())
 						new.Field(index).Set(j)
 					default:
 						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gosql, kind: ", kind)

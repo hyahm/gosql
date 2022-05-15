@@ -184,7 +184,7 @@ func (d *PGConn) Select(dest interface{}, cmd string, args ...interface{}) Resul
 	}
 	defer rows.Close()
 	// 需要设置的值
-	res.Err = fillpg(dest, rows)
+	res.Err = pgfill(dest, rows)
 	return res
 }
 
