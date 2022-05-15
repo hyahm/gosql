@@ -64,7 +64,6 @@ func pgfill(dest interface{}, rows pgx.Rows) error {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Println("44444444")
 		new := reflect.New(typ)
 		if !isPtr {
 			new = new.Elem()
@@ -83,7 +82,6 @@ func pgfill(dest interface{}, rows pgx.Rows) error {
 			}
 
 			if v, ok := names[tags[0]]; ok {
-				fmt.Println(66666)
 				if new.Field(index).CanSet() {
 					// 判断这一列的值
 					kind := new.Field(index).Kind()
