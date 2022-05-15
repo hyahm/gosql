@@ -189,6 +189,9 @@ func (d *PGConn) Select(dest interface{}, cmd string, args ...interface{}) Resul
 	// db.Select(&value, "select * from test")
 	// 传入切片的地址， 根据tag 的 db 自动补充，
 	// 最求性能建议还是使用 GetRows or GetOne
+	for i := 1; i <= len(args); i++ {
+		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
+	}
 	res := Result{}
 	if d.debug {
 		res.Sql = ToPGSql(cmd, args...)
