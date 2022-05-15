@@ -55,7 +55,9 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 	for k := range vals {
 		scans[k] = &vals[k]
 	}
+	index := 0
 	for rows.Next() {
+		index++
 		// scan into the struct field pointers and append to our results
 		err := rows.Scan(scans...)
 		if err != nil {
@@ -149,6 +151,9 @@ func pgfill(dest interface{}, rows *sql.Rows) error {
 
 			}
 		}
+	}
+	if index == 0 {
+		return sql.ErrNoRows
 	}
 	value.Elem().Set(ss)
 	return nil

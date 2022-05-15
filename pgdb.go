@@ -175,7 +175,7 @@ func (d *PGConn) Select(dest interface{}, cmd string, args ...interface{}) Resul
 	// 最求性能建议还是使用 GetRows or GetOne
 	res := Result{}
 	if d.debug {
-		res.Sql = ToSql(cmd, args...)
+		res.Sql = ToPGSql(cmd, args...)
 	}
 	rows, err := d.Query(d.Ctx, cmd, args...)
 	if err != nil {
