@@ -2,7 +2,9 @@ package gosql
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -96,18 +98,23 @@ func (d *PGConn) InsertWithoutId(cmd string, args ...interface{}) Result {
 }
 
 func (d *PGConn) UpdateInterface(dest interface{}, cmd string, args ...interface{}) Result {
-	newcmd, newargs, err := pgupdateInterfaceSql(dest, cmd, args...)
+	newcmd, newargs, err := updateInterfaceSql(dest, cmd, args...)
 	if err != nil {
 		return Result{Err: err}
 	}
+
 	return d.Update(newcmd, newargs...)
 }
 
 func (d *PGConn) Update(cmd string, args ...interface{}) Result {
+	for i := 1; i <= len(cmd); i++ {
+		cmd = strings.Replace(cmd, "?", fmt.Sprintf("$%d", i), 1)
+	}
 	res := Result{}
 	if d.debug {
 		res.Sql = ToPGSql(cmd, args...)
 	}
+
 	tags, err := d.Exec(d.Ctx, cmd, args...)
 	if err != nil {
 		res.Err = err
