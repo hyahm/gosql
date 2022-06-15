@@ -23,7 +23,7 @@ func (d *Db) UpdateIn(cmd string, args ...interface{}) Result {
 	if err != nil {
 		return Result{Err: err}
 	}
-	return d.Update(newcmd, newargs)
+	return d.Update(newcmd, newargs...)
 }
 
 func (d *Db) InsertIn(cmd string, args ...interface{}) Result {
@@ -31,7 +31,7 @@ func (d *Db) InsertIn(cmd string, args ...interface{}) Result {
 	if err != nil {
 		return Result{Err: err}
 	}
-	return d.Insert(newcmd, newargs)
+	return d.Insert(newcmd, newargs...)
 }
 
 func (d *Db) DeleteIn(cmd string, args ...interface{}) Result {
