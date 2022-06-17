@@ -79,6 +79,7 @@ func (d *Db) Use(dbname string, overWrite ...bool) (*Db, error) {
 		ConnMaxLifetime:         d.sc.ConnMaxLifetime,
 		WriteLogWhenFailed:      d.sc.WriteLogWhenFailed,
 		LogFile:                 d.sc.LogFile,
+		Debug:                   d.debug,
 	}
 	return s.conndb(s.GetMysqlDataSource())
 }

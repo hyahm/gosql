@@ -24,15 +24,15 @@ create table account (
 );
 `
 
-var conf = &gosql.Sqlconfig{
-	Host:     "192.168.101.13",
-	Port:     5432,
-	UserName: "test",
-	Password: "123456",
-	DbName:   "test",
-}
-
 func main() {
+	var conf = &gosql.Sqlconfig{
+		Host:     "192.168.101.13",
+		Port:     5432,
+		UserName: "test",
+		Password: "123456",
+		DbName:   "test",
+		Debug:    true,
+	}
 	pg, err := conf.NewPGPool()
 	// urlExample := "postgres://test:123456@192.168.50.58:5432/mydb"
 	// conn, err := pgxpool.Connect(context.Background(), "postgres://test:123456@192.168.50.58:5432/mydb")

@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+
+	"github.com/hyahm/gosql"
 )
 
 type MeStruct struct {
@@ -22,7 +24,14 @@ type Person struct {
 }
 
 func main() {
-	db, err := conf.NewMysqlDb()
+	var conf = &gosql.Sqlconfig{
+		Host:     "192.168.50.58",
+		Port:     3306,
+		UserName: "test",
+		Password: "123456",
+		Debug:    true,
+	}
+	db, err := conf.CreateDB("test")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +57,6 @@ func main() {
 	if res.Err != nil {
 		log.Fatal(res.Err)
 	}
-	db.Select()
 	// cate := &User{}
 	// res := db.Insert("INSERT INTO user (username, password) VALUES ('77tom', '123') ON DUPLICATE KEY UPDATE username='tom', password='123';")
 	// // _, err = db.ReplaceInterface(&cate, "INSERT INTO user ($key) VALUES ($value) ON DUPLICATE KEY UPDATE $set")

@@ -154,6 +154,7 @@ func (s *Sqlconfig) conndb(conf string) (*Db, error) {
 		0,
 		s.Debug,
 	}
+	fmt.Println(db.debug)
 
 	if s.ReadTimeout == 0 {
 		s.ReadTimeout = time.Second * 30
