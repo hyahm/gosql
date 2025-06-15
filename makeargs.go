@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // 增加 default: 使用默认值
@@ -105,6 +106,21 @@ func fill(dest interface{}, rows *sql.Rows) error {
 						new.Field(index).SetFloat(f64)
 
 					case reflect.Struct:
+						if new.Field(index).Type().String() == "time.Time" {
+							tv, err := time.Parse("2006-01-02 15:04:05", string(b))
+							if err != nil {
+								new.Field(index).Set(reflect.ValueOf(time.Time{}))
+								continue
+							}
+							new.Field(index).Set(reflect.ValueOf(tv))
+							continue
+							// tv := value.Field(v).Interface().(time.Time).Format("2006-01-02 15:04:05")
+							// keys = append(keys, signs[0])
+							// values = append(values, tv)
+							// placeholders = append(placeholders, "?")
+							// continue
+						}
+
 						j := reflect.New(new.Field(index).Type())
 						json.Unmarshal(b, j.Interface())
 						new.Field(index).Set(j.Elem())
@@ -176,15 +192,15 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 	if typ.Kind() == reflect.Struct {
 		// 如果是struct， 执行插入
 		for i := 0; i < value.NumField(); i++ {
-			key := typ.Field(i).Tag.Get("db")
-			if key == "" {
+			tag := typ.Field(i).Tag.Get("db")
+			if tag == "" {
 				continue
 			}
-			signs := strings.Split(key, ",")
+			signs := strings.Split(tag, ",")
 			kind := value.Field(i).Kind()
 			switch kind {
 			case reflect.String:
-				if value.Field(i) == reflect.ValueOf("") && strings.Contains(key, "default") {
+				if value.Field(i) == reflect.ValueOf("") && strings.Contains(tag, "default") {
 					continue
 				}
 				keys = append(keys, signs[0])
@@ -192,29 +208,26 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 				values = append(values, value.Field(i).Interface())
 
 			case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
-				if value.Field(i).Int() == 0 && !strings.Contains(key, "force") {
+				if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
 					continue
 				}
 				keys = append(keys, signs[0])
 				// placeholders = append(placeholders, "?")
 				values = append(values, value.Field(i).Interface())
 			case reflect.Float32, reflect.Float64:
-				if value.Field(i).Float() == 0 && !strings.Contains(key, "force") {
+				if value.Field(i).Float() == 0 && !strings.Contains(tag, "force") {
 					continue
 				}
 				keys = append(keys, signs[0])
-				// placeholders = append(placeholders, "?")
 				values = append(values, value.Field(i).Interface())
 			case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32:
-				if value.Field(i).Uint() == 0 && !strings.Contains(key, "force") {
+				if value.Field(i).Uint() == 0 && !strings.Contains(tag, "force") {
 					continue
 				}
 				keys = append(keys, signs[0])
-				// placeholders = append(placeholders, "?")
 				values = append(values, value.Field(i).Interface())
 			case reflect.Bool:
 				keys = append(keys, signs[0])
-				// placeholders = append(placeholders, "?")
 				values = append(values, value.Field(i).Interface())
 			case reflect.Slice:
 				if value.Field(i).IsNil() {
@@ -222,7 +235,7 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 					// placeholders = append(placeholders, "?")
 					values = append(values, "[]")
 				} else {
-					if value.Field(i).Len() == 0 && !strings.Contains(key, "default") {
+					if value.Field(i).Len() == 0 && !strings.Contains(tag, "default") {
 						continue
 					}
 
@@ -231,13 +244,14 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 					send, err := json.Marshal(value.Field(i).Interface())
 					if err != nil {
 						values = append(values, "[]")
+						placeholders = append(placeholders, "?")
 						continue
 					}
 					values = append(values, send)
 				}
 			case reflect.Ptr:
 				if value.Field(i).IsNil() {
-					if !strings.Contains(key, "default") {
+					if !strings.Contains(tag, "default") {
 						continue
 					}
 					keys = append(keys, signs[0])
@@ -249,16 +263,35 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 					send, err := json.Marshal(value.Field(i).Interface())
 					if err != nil {
 						values = append(values, "{}")
+						placeholders = append(placeholders, "?")
 						continue
 					}
 					values = append(values, send)
 				}
 			case reflect.Struct, reflect.Interface:
+				if typ.Field(i).Type.String() == "time.Time" {
+					if !value.Field(i).Interface().(time.Time).IsZero() {
+						tv := value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05")
+						keys = append(keys, signs[0])
+						values = append(values, tv)
+						placeholders = append(placeholders, "?")
+						continue
+					} else {
+						if strings.Contains(tag, "default") {
+							keys = append(keys, signs[0])
+							values = append(values, time.Time{}.Format("2006-01-02 15:04:05"))
+						}
+						placeholders = append(placeholders, "?")
+						continue
+					}
+
+				}
 				keys = append(keys, signs[0])
 				// placeholders = append(placeholders, "?")
 				send, err := json.Marshal(value.Field(i).Interface())
 				if err != nil {
 					values = append(values, "{}")
+					placeholders = append(placeholders, "?")
 					continue
 				}
 				values = append(values, send)
@@ -299,22 +332,22 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 	keys := make([]string, 0)
 	// 如果是struct， 执行插入
 	for i := 0; i < value.NumField(); i++ {
-		key := typ.Field(i).Tag.Get("db")
-		if key == "" {
+		tag := typ.Field(i).Tag.Get("db")
+		if tag == "" {
 			continue
 		}
-		signs := strings.Split(key, ",")
+		signs := strings.Split(tag, ",")
 		kind := value.Field(i).Kind()
 		switch kind {
 
 		case reflect.String:
-			if value.Field(i).Interface().(string) == "" && !strings.Contains(key, "force") {
+			if value.Field(i).Interface().(string) == "" && !strings.Contains(tag, "force") {
 				continue
 			}
 
 			values = append(values, value.Field(i).Interface())
 		case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
-			if value.Field(i).Int() == 0 && !strings.Contains(key, "force") {
+			if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
 				continue
 			}
 			// if strings.Contains(key, "counter") {
@@ -325,32 +358,32 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			values = append(values, value.Field(i).Interface())
 
 		case reflect.Float32, reflect.Float64:
-			if value.Field(i).Float() == 0 && !strings.Contains(key, "force") {
+			if value.Field(i).Float() == 0 && !strings.Contains(tag, "force") {
 				continue
 			}
 
 			values = append(values, value.Field(i).Interface())
 		case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32:
-			if value.Field(i).Uint() == 0 && !strings.Contains(key, "force") {
+			if value.Field(i).Uint() == 0 && !strings.Contains(tag, "force") {
 				continue
 			}
 
 			values = append(values, value.Field(i).Interface())
 		case reflect.Bool:
-			if !value.Field(i).Bool() && !strings.Contains(key, "force") {
+			if !value.Field(i).Bool() && !strings.Contains(tag, "force") {
 				continue
 			}
 			// keys = append(keys, signs[0]+"=?")
 			values = append(values, value.Field(i).Interface())
 		case reflect.Slice:
 			if value.Field(i).IsNil() {
-				if !strings.Contains(key, "force") {
+				if !strings.Contains(tag, "force") {
 					continue
 				}
 				// keys = append(keys, signs[0]+"=?")
 				values = append(values, "")
 			} else {
-				if value.Field(i).Len() == 0 && !strings.Contains(key, "force") {
+				if value.Field(i).Len() == 0 && !strings.Contains(tag, "force") {
 					continue
 				}
 				// keys = append(keys, signs[0]+"=?")
@@ -363,7 +396,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			}
 		case reflect.Ptr:
 			if value.Field(i).IsNil() {
-				if !strings.Contains(key, "force") {
+				if !strings.Contains(tag, "force") {
 					continue
 				}
 				// keys = append(keys, signs[0]+"=?")
@@ -379,6 +412,18 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			}
 		case reflect.Struct, reflect.Interface:
 			empty := reflect.New(reflect.TypeOf(value.Field(i).Interface())).Elem().Interface()
+			if typ.Field(i).Type.String() == "time.Time" {
+				if value.Field(i).Interface().(time.Time).IsZero() && !strings.Contains(tag, "force") {
+					continue
+				}
+				if value.Field(i).Interface().(time.Time).IsZero() && strings.Contains(tag, "force") {
+					values = append(values, value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05"))
+					goto end
+				}
+				tv := value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05")
+				values = append(values, tv)
+				goto end
+			}
 			if reflect.DeepEqual(value.Field(i).Interface(), empty) {
 				continue
 			}
@@ -392,7 +437,8 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 		default:
 			return "", nil, errors.New("not support , you can add issue: " + kind.String())
 		}
-		if strings.Contains(key, "counter") {
+	end:
+		if strings.Contains(tag, "counter") {
 			keys = append(keys, fmt.Sprintf("%s=%s+?", signs[0], signs[0]))
 		} else {
 			keys = append(keys, signs[0]+"=?")
