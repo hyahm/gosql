@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -101,33 +100,33 @@ type HengshengZsFundflow struct {
 	Created               time.Time `gorm:"notNull;default:current_timestamp();column:created" json:"created"`                 // 创建时间
 }
 
+type MpTypeTable struct {
+	ID       int64     `gorm:"column:id;primaryKey" json:"id" db:"id"`
+	UID      int64     `gorm:"column:uid;primaryKey" json:"uid" db:"uid"`
+	TypeName string    `gorm:"column:type_name;not null" json:"type_name" db:"type_name"`
+	Icon     string    `gorm:"column:icon" json:"icon" db:"icon"`
+	UpdateAt time.Time `gorm:"column:update_at" json:"update_at" db:"update_at"`
+	ParentID int64     `gorm:"column:parent_id" json:"parent_id,omitempty" db:"parent_id"` // 使用指针类型以支持 NULL 值
+	Deleted  bool      `gorm:"column:deleted" json:"-" db:"deleted"`
+}
+
 func main() {
 	var conf = &gosql.Sqlconfig{
-		Host:     "192.168.56.128",
+		Host:     "192.168.1.121",
 		Port:     3306,
-		UserName: "cander",
+		UserName: "linbihuan",
 		Password: "123456",
 		Debug:    true,
 	}
-	db, err := conf.CreateDB("test")
+	db, err := conf.CreateDB("dxzg")
 	if err != nil {
 		log.Fatal(err)
 	}
-	db.Exec(sql)
-	ps := &MpMessageList{
-		TypeID:      1,
-		UID:         1,
-		Title:       "test",
-		Summary:     "test",
-		Content:     "test",
-		SendTime:    time.Now(),
-		AuditTime:   time.Now(),
-		ClickVolume: 1,
-		CreateAt:    time.Now(),
-		UpdateAt:    time.Now(),
-		Deleted:     false,
-		MsgId:       "test",
-		Platform:    1,
+	// db.Exec(sql)
+	ps := &MpTypeTable{
+		ID:       31,
+		TypeName: "图片地址",
+		Icon:     "https://test-dxzg-admin.dexunzhenggu.cn/static/upload/official/dynamic/tmp/85f4ebc551a39427dad00c116f36aa975c963cd2b7d96cb3727373d933642992.png",
 	}
 	// err = db.InsertInterfaceWithID(ps, "insert into mp_message_list($key) values($value)").Err
 
@@ -138,15 +137,15 @@ func main() {
 	// omitempty: 如果为空， 那么为数据库的默认值
 	// struct, 指针， 切片 默认值为 ""
 	// $set
-	// res := db.UpdateInterface(ps, "update mp_message_list set $set where id=?", 1)
-	// if res.Err != nil {
-	// 	log.Fatal(res.Err)
-	// }
-	err = db.Select(ps, "select * from mp_message_list where id=?", 1).Err
-	if err != nil {
-		log.Fatal(err)
+	res := db.UpdateInterface(ps, "update mp_type_table set $set where id=?", ps.ID)
+	if res.Err != nil {
+		log.Fatal(res.Err)
 	}
-	fmt.Printf("%v\n", ps.AuditTime.Format("2006-01-02 15:04:05.000000000"))
+	// err = db.Select(ps, "select * from mp_type_table where id=?", 1).Err
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("%v\n", ps.Icon.Format("2006-01-02 15:04:05.000000000"))
 	// cate := &User{}
 	// res := db.Insert("INSERT INTO user (username, password) VALUES ('77tom', '123') ON DUPLICATE KEY UPDATE username='tom', password='123';")
 	// // _, err = db.ReplaceInterface(&cate, "INSERT INTO user ($key) VALUES ($value) ON DUPLICATE KEY UPDATE $set")

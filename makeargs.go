@@ -337,6 +337,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			continue
 		}
 		signs := strings.Split(tag, ",")
+		// 获取字段名
 		kind := value.Field(i).Kind()
 		switch kind {
 
@@ -350,11 +351,6 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
 				continue
 			}
-			// if strings.Contains(key, "counter") {
-			// 	keys = append(keys, fmt.Sprintf("%s=%s+?", signs[0], signs[0]))
-			// } else {
-			// 	keys = append(keys, signs[0]+"=?")
-			// }
 			values = append(values, value.Field(i).Interface())
 
 		case reflect.Float32, reflect.Float64:
@@ -390,7 +386,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 				send, err := json.Marshal(value.Field(i).Interface())
 				if err != nil {
 					values = append(values, "")
-					continue
+					goto end
 				}
 				values = append(values, string(send))
 			}
@@ -406,7 +402,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 				send, err := json.Marshal(value.Field(i).Interface())
 				if err != nil {
 					values = append(values, "")
-					continue
+					goto end
 				}
 				values = append(values, string(send))
 			}
@@ -431,7 +427,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			send, err := json.Marshal(value.Field(i).Interface())
 			if err != nil {
 				values = append(values, "")
-				continue
+				goto end
 			}
 			values = append(values, string(send))
 		default:
@@ -446,6 +442,7 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 	}
 
 	cmd = strings.Replace(cmd, "$set", strings.Join(keys, ","), 1)
+
 	newargs := append(values, args...)
 	return cmd, newargs, nil
 }
