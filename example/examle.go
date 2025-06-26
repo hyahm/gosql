@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"slices"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -70,14 +69,6 @@ CREATE TABLE mp_message_list (
 // 	ParentID int64     `gorm:"column:parent_id" json:"parent_id,omitempty" db:"parent_id"` // 使用指针类型以支持 NULL 值
 // 	Deleted  bool      `gorm:"column:deleted" json:"-" db:"deleted"`
 // }
-
-func sort() {
-	a := []int{1, 2, 3, 4, 5}
-	for i := 0; i < len(a); i++ {
-		....
-	}
-	a = nil
-}
 
 func main() {
 

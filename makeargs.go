@@ -71,16 +71,16 @@ func fill(dest interface{}, rows *sql.Rows) error {
 		for index := 0; index < typ.NumField(); index++ {
 			c := &column{}
 			c.getcolumn(typ.Field(index))
-			dbname := typ.Field(index).Tag.Get("db")
-			tags := strings.Split(dbname, ",")
-			if len(tags) == 0 {
-				continue
-			}
-			if tags[0] == "" {
-				continue
-			}
+			// dbname := typ.Field(index).Tag.Get("db")
+			// tags := strings.Split(dbname, ",")
+			// if len(tags) == 0 {
+			// 	continue
+			// }
+			// if tags[0] == "" {
+			// 	continue
+			// }
 
-			if v, ok := names[tags[0]]; ok {
+			if v, ok := names[c.name]; ok {
 				if new.Field(index).CanSet() {
 					// 判断这一列的值
 					kind := new.Field(index).Kind()
@@ -109,9 +109,9 @@ func fill(dest interface{}, rows *sql.Rows) error {
 
 					case reflect.Struct:
 						if new.Field(index).Type().String() == "time.Time" {
-							tv, err := time.Parse("2006-01-02 15:04:05", string(b))
+							tv, err := time.ParseInLocation("2006-01-02 15:04:05", string(b), time.Local)
 							if err != nil {
-								new.Field(index).Set(reflect.ValueOf(time.Time{}))
+								new.Field(index).Set(reflect.ValueOf(time.Time{}.Local()))
 								continue
 							}
 							new.Field(index).Set(reflect.ValueOf(tv))
@@ -138,7 +138,10 @@ func fill(dest interface{}, rows *sql.Rows) error {
 
 					case reflect.Ptr:
 						j := reflect.New(new.Field(index).Type())
-						json.Unmarshal(b, j.Interface())
+						err = json.Unmarshal(b, j.Interface())
+						if err != nil {
+							log.Println(err)
+						}
 						new.Field(index).Set(j)
 					default:
 						log.Println("not support , you can make a issue to report in https://github.com/hyahm/gosql, kind: ", kind)
@@ -245,7 +248,6 @@ func (c *column) getDefaultColumn(tag reflect.StructTag) {
 			c.force = true
 		}
 		if !c.created && strings.Contains(v, "created") {
-			fmt.Println("created tag")
 			c.created = true
 		}
 		if !c.updated && strings.Contains(v, "updated") {
