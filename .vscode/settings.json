@@ -8,6 +8,6 @@
     "workbench.tree.indent": 28,
     "go.autocompleteUnimportedPackages": true,
     "go.useLanguageServer": true,
-    "eggHelper.serverPort": 35684
+    "eggHelper.serverPort": 36825
 
 }

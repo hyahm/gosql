@@ -69,6 +69,8 @@ func fill(dest interface{}, rows *sql.Rows) error {
 			new = new.Elem()
 		}
 		for index := 0; index < typ.NumField(); index++ {
+			c := &column{}
+			c.getcolumn(typ.Field(index))
 			dbname := typ.Field(index).Tag.Get("db")
 			tags := strings.Split(dbname, ",")
 			if len(tags) == 0 {
@@ -168,6 +170,120 @@ func fill(dest interface{}, rows *sql.Rows) error {
 	return nil
 }
 
+type column struct {
+	name         string // 字段名
+	defaultValue string // 默认值
+	hasDefault   bool
+	isCounter    bool // 是不是增量器
+	force        bool // 强制修改
+	// 插入时的标记
+	created bool
+	updated bool
+}
+
+func (c *column) getcolumn(field reflect.StructField) {
+	c.getDefaultColumn(field.Tag)
+	c.getGormColumn(field.Tag)
+	c.getXormColumn(field.Tag)
+	if c.name == "" {
+		c.name = strings.ToLower(field.Name)
+	}
+}
+
+func (c *column) getGormColumn(tag reflect.StructTag) {
+
+	gormTag := tag.Get("gorm")
+	if gormTag == "" {
+		return
+	}
+
+	// 分号切割
+	tags := strings.Split(tag.Get("gorm"), ";")
+	for _, v := range tags {
+		// 冒号切割
+		tmp := strings.Split(v, ":")
+		if len(tmp) == 2 {
+			if c.name == "" && tmp[0] == "column" {
+				c.name = strings.ToLower(tmp[1])
+			}
+			if !c.hasDefault && tmp[0] == "default" {
+				if tmp[1] == "CURRENT_TIMESTAMP" {
+					c.defaultValue = fmt.Sprintf("%v", time.Now().Unix())
+				} else {
+					c.defaultValue = tmp[1]
+				}
+			}
+		}
+
+	}
+
+}
+
+func (c *column) getDefaultColumn(tag reflect.StructTag) {
+
+	dbTag := tag.Get("db")
+	if dbTag == "" {
+		return
+	}
+	tags := strings.Split(tag.Get("db"), ";")
+	for _, v := range tags {
+		// 冒号切割
+		tmp := strings.Split(v, ":")
+		if len(tmp) == 2 {
+			if c.name == "" && tmp[0] == "column" {
+				c.name = strings.ToLower(tmp[1])
+			}
+			if !c.hasDefault && tmp[0] == "default" {
+				c.hasDefault = true
+				c.defaultValue = tmp[1]
+			}
+		}
+		if !c.isCounter && strings.Contains(v, "counter") {
+			c.isCounter = true
+		}
+		if !c.force && strings.Contains(v, "force") {
+			c.force = true
+		}
+		if !c.created && strings.Contains(v, "created") {
+			fmt.Println("created tag")
+			c.created = true
+		}
+		if !c.updated && strings.Contains(v, "updated") {
+			c.updated = true
+		}
+	}
+}
+
+func (c *column) getXormColumn(tag reflect.StructTag) {
+	xormTag := tag.Get("xorm")
+	if xormTag == "" {
+		return
+	}
+	tags := strings.Split(tag.Get("xorm"), ";")
+	for _, v := range tags {
+		// 冒号切割
+		tmp := strings.Split(v, ":")
+		if len(tmp) == 2 {
+			if c.name == "" && tmp[0] == "column" {
+				c.name = strings.ToLower(tmp[1])
+			}
+			if !c.hasDefault && tmp[0] == "default" {
+				c.hasDefault = true
+				c.defaultValue = tmp[1]
+			}
+		}
+		if !c.isCounter && strings.Contains(v, "version") {
+			c.isCounter = true
+		}
+		if !c.created && strings.Contains(v, "created") {
+			c.created = true
+		}
+		if !c.updated && strings.Contains(v, "updated") {
+			c.updated = true
+		}
+	}
+}
+
 func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (string, []interface{}, error) {
 	// 插入到args之前  dest 是struct或切片的指针
 	if !strings.Contains(cmd, "$key") {
@@ -192,119 +308,127 @@ func insertInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 	if typ.Kind() == reflect.Struct {
 		// 如果是struct， 执行插入
 		for i := 0; i < value.NumField(); i++ {
-			tag := typ.Field(i).Tag.Get("db")
-			if tag == "" {
+			c := column{}
+			c.getcolumn(typ.Field(i))
+			if c.name == "" {
 				continue
 			}
-			signs := strings.Split(tag, ",")
+			column := c.name
+			// 如果有设置默认值就填充进行下一个
+			if value.Field(i).IsZero() {
+				if c.hasDefault {
+					keys = append(keys, column)
+					placeholders = append(placeholders, "?")
+					values = append(values, c.defaultValue)
+				}
+				if c.created || c.updated {
+					keys = append(keys, column)
+					values = append(values, time.Now().Local())
+					placeholders = append(placeholders, "?")
+				}
+				continue
+			}
+
 			kind := value.Field(i).Kind()
 			switch kind {
-			case reflect.String:
-				if value.Field(i) == reflect.ValueOf("") && strings.Contains(tag, "default") {
-					continue
-				}
-				keys = append(keys, signs[0])
-				// placeholders = append(placeholders, "?")
-				values = append(values, value.Field(i).Interface())
 
-			case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
-				if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
-					continue
-				}
-				keys = append(keys, signs[0])
-				// placeholders = append(placeholders, "?")
+			// case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
+			// 	keys = append(keys, column)
+			// 	// placeholders = append(placeholders, "?")
+			// 	values = append(values, value.Field(i).Interface())
+
+			// case reflect.Float32, reflect.Float64:
+			// 	keys = append(keys, column)
+			// 	values = append(values, value.Field(i).Interface())
+			case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32,
+				reflect.String, reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32,
+				reflect.Float32, reflect.Float64, reflect.Bool:
+
+				keys = append(keys, column)
 				values = append(values, value.Field(i).Interface())
-			case reflect.Float32, reflect.Float64:
-				if value.Field(i).Float() == 0 && !strings.Contains(tag, "force") {
-					continue
-				}
-				keys = append(keys, signs[0])
-				values = append(values, value.Field(i).Interface())
-			case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32:
-				if value.Field(i).Uint() == 0 && !strings.Contains(tag, "force") {
-					continue
-				}
-				keys = append(keys, signs[0])
-				values = append(values, value.Field(i).Interface())
-			case reflect.Bool:
-				keys = append(keys, signs[0])
-				values = append(values, value.Field(i).Interface())
+				placeholders = append(placeholders, "?")
+			// case reflect.Bool:
+			// 	keys = append(keys, column)
+			// 	values = append(values, value.Field(i).Interface())
 			case reflect.Slice:
-				if value.Field(i).IsNil() {
-					keys = append(keys, signs[0])
-					// placeholders = append(placeholders, "?")
-					values = append(values, "[]")
-				} else {
-					if value.Field(i).Len() == 0 && !strings.Contains(tag, "default") {
-						continue
-					}
+				// if value.Field(i).IsNil() {
+				// 	keys = append(keys, column)
+				// 	// placeholders = append(placeholders, "?")
+				// 	values = append(values, "[]")
+				// } else {
+				if value.Field(i).Len() == 0 {
+					continue
+				}
 
-					keys = append(keys, signs[0])
-					// placeholders = append(placeholders, "?")
-					send, err := json.Marshal(value.Field(i).Interface())
-					if err != nil {
-						values = append(values, "[]")
-						placeholders = append(placeholders, "?")
-						continue
-					}
-					values = append(values, send)
-				}
-			case reflect.Ptr:
-				if value.Field(i).IsNil() {
-					if !strings.Contains(tag, "default") {
-						continue
-					}
-					keys = append(keys, signs[0])
-					// placeholders = append(placeholders, "?")
-					values = append(values, "{}")
-				} else {
-					keys = append(keys, signs[0])
-					// placeholders = append(placeholders, "?")
-					send, err := json.Marshal(value.Field(i).Interface())
-					if err != nil {
-						values = append(values, "{}")
-						placeholders = append(placeholders, "?")
-						continue
-					}
-					values = append(values, send)
-				}
-			case reflect.Struct, reflect.Interface:
-				if typ.Field(i).Type.String() == "time.Time" {
-					if !value.Field(i).Interface().(time.Time).IsZero() {
-						tv := value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05")
-						keys = append(keys, signs[0])
-						values = append(values, tv)
-						placeholders = append(placeholders, "?")
-						continue
-					} else {
-						if strings.Contains(tag, "default") {
-							keys = append(keys, signs[0])
-							values = append(values, time.Time{}.Format("2006-01-02 15:04:05"))
-						}
-						placeholders = append(placeholders, "?")
-						continue
-					}
-
-				}
-				keys = append(keys, signs[0])
+				keys = append(keys, column)
+				placeholders = append(placeholders, "?")
 				// placeholders = append(placeholders, "?")
 				send, err := json.Marshal(value.Field(i).Interface())
 				if err != nil {
+					values = append(values, "[]")
+					continue
+				}
+				values = append(values, send)
+				// }
+			case reflect.Ptr:
+				// if value.Field(i).IsNil() {
+				// 	if !strings.Contains(tag, "default") {
+				// 		continue
+				// 	}
+				// 	keys = append(keys, column)
+				// 	// placeholders = append(placeholders, "?")
+				// 	values = append(values, "{}")
+				// } else {
+				keys = append(keys, column)
+				// placeholders = append(placeholders, "?")
+				placeholders = append(placeholders, "?")
+				send, err := json.Marshal(value.Field(i).Interface())
+				if err != nil {
 					values = append(values, "{}")
+					continue
+				}
+				values = append(values, send)
+				// }
+			case reflect.Struct, reflect.Interface:
+				if typ.Field(i).Type.String() == "time.Time" {
+
+					// if !value.Field(i).Interface().(time.Time).IsZero() {
+					tv := value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05")
+					keys = append(keys, column)
+					values = append(values, tv)
+					// 	placeholders = append(placeholders, "?")
+					// 	continue
+					// }
+					// else {
+					// if strings.Contains(tag, "default") {
+					// 	keys = append(keys, column)
+					// 	values = append(values, time.Time{}.Format("2006-01-02 15:04:05"))
+					// }
 					placeholders = append(placeholders, "?")
+					// 	continue
+					// }
+					continue
+
+				}
+				keys = append(keys, column)
+				placeholders = append(placeholders, "?")
+				send, err := json.Marshal(value.Field(i).Interface())
+				if err != nil {
+					values = append(values, "{}")
 					continue
 				}
 				values = append(values, send)
 			default:
 				return "", nil, errors.New("not support , you can add issue: " + kind.String())
 			}
-			placeholders = append(placeholders, "?")
+			// placeholders = append(placeholders, "?")
 		}
 	}
 
 	cmd = strings.Replace(cmd, "$key", strings.Join(keys, ","), 1)
 	cmd = strings.Replace(cmd, "$value", strings.Join(placeholders, ","), 1)
 	newargs := append(values, args...)
+	fmt.Println(cmd)
 	return cmd, newargs, nil
 }
 
@@ -332,93 +456,99 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 	keys := make([]string, 0)
 	// 如果是struct， 执行插入
 	for i := 0; i < value.NumField(); i++ {
-		tag := typ.Field(i).Tag.Get("db")
-		if tag == "" {
+
+		c := &column{}
+		// tag := c.name
+		c.getcolumn(typ.Field(i))
+		// signs := strings.Split(tag, ",")
+		// 获取字段名
+		if value.Field(i).IsZero() {
+			if !c.force {
+				continue
+			}
+
+			if c.isCounter {
+				keys = append(keys, fmt.Sprintf("%s=%s+?", c.name, c.name))
+			} else {
+				keys = append(keys, c.name+"=?")
+			}
+			values = append(values, value.Field(i).Interface())
 			continue
 		}
-		signs := strings.Split(tag, ",")
-		// 获取字段名
 		kind := value.Field(i).Kind()
 		switch kind {
 
-		case reflect.String:
-			if value.Field(i).Interface().(string) == "" && !strings.Contains(tag, "force") {
-				continue
-			}
+		// case reflect.String:
+		// 	values = append(values, value.Field(i).Interface())
+		// case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
+		// 	if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
+		// 		continue
+		// 	}
+		// 	values = append(values, value.Field(i).Interface())
+
+		// case reflect.Float32, reflect.Float64:
+		// 	// if value.Field(i).Float() == 0 && !strings.Contains(tag, "force") {
+		// 	// 	continue
+		// 	// }
+
+		// 	values = append(values, value.Field(i).Interface())
+		case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32,
+			reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32, reflect.String,
+			reflect.Float32, reflect.Float64, reflect.Bool:
 
 			values = append(values, value.Field(i).Interface())
-		case reflect.Int64, reflect.Int, reflect.Int16, reflect.Int8, reflect.Int32:
-			if value.Field(i).Int() == 0 && !strings.Contains(tag, "force") {
-				continue
-			}
-			values = append(values, value.Field(i).Interface())
-
-		case reflect.Float32, reflect.Float64:
-			if value.Field(i).Float() == 0 && !strings.Contains(tag, "force") {
-				continue
-			}
-
-			values = append(values, value.Field(i).Interface())
-		case reflect.Uint64, reflect.Uint, reflect.Uint16, reflect.Uint8, reflect.Uint32:
-			if value.Field(i).Uint() == 0 && !strings.Contains(tag, "force") {
-				continue
-			}
-
-			values = append(values, value.Field(i).Interface())
-		case reflect.Bool:
-			if !value.Field(i).Bool() && !strings.Contains(tag, "force") {
-				continue
-			}
-			// keys = append(keys, signs[0]+"=?")
-			values = append(values, value.Field(i).Interface())
+		// case reflect.Bool:
+		// 	if !value.Field(i).Bool() && !strings.Contains(tag, "force") {
+		// 		continue
+		// 	}
+		// 	// keys = append(keys, signs[0]+"=?")
+		// 	values = append(values, value.Field(i).Interface())
 		case reflect.Slice:
-			if value.Field(i).IsNil() {
-				if !strings.Contains(tag, "force") {
-					continue
-				}
-				// keys = append(keys, signs[0]+"=?")
-				values = append(values, "")
-			} else {
-				if value.Field(i).Len() == 0 && !strings.Contains(tag, "force") {
-					continue
-				}
-				// keys = append(keys, signs[0]+"=?")
-				send, err := json.Marshal(value.Field(i).Interface())
-				if err != nil {
-					values = append(values, "")
-					goto end
-				}
-				values = append(values, string(send))
+			// if value.Field(i).IsNil() {
+			// 	if !strings.Contains(tag, "force") {
+			// 		continue
+			// 	}
+			// 	// keys = append(keys, signs[0]+"=?")
+			// 	values = append(values, "[]")
+			// } else {
+
+			// keys = append(keys, signs[0]+"=?")
+			send, err := json.Marshal(value.Field(i).Interface())
+			if err != nil {
+				fmt.Println(err)
 			}
+			values = append(values, string(send))
+			// }
 		case reflect.Ptr:
-			if value.Field(i).IsNil() {
-				if !strings.Contains(tag, "force") {
-					continue
-				}
-				// keys = append(keys, signs[0]+"=?")
-				values = append(values, "")
-			} else {
-				// keys = append(keys, signs[0]+"=?")
-				send, err := json.Marshal(value.Field(i).Interface())
-				if err != nil {
-					values = append(values, "")
-					goto end
-				}
-				values = append(values, string(send))
+			// if value.Field(i).IsNil() {
+			// 	if !strings.Contains(tag, "force") {
+			// 		continue
+			// 	}
+			// 	// keys = append(keys, signs[0]+"=?")
+			// 	values = append(values, "")
+			// } else {
+			// keys = append(keys, signs[0]+"=?")
+			send, err := json.Marshal(value.Field(i).Interface())
+			if err != nil {
+				fmt.Println(err)
 			}
+			values = append(values, string(send))
+			// }
 		case reflect.Struct, reflect.Interface:
 			empty := reflect.New(reflect.TypeOf(value.Field(i).Interface())).Elem().Interface()
 			if typ.Field(i).Type.String() == "time.Time" {
-				if value.Field(i).Interface().(time.Time).IsZero() && !strings.Contains(tag, "force") {
-					continue
-				}
-				if value.Field(i).Interface().(time.Time).IsZero() && strings.Contains(tag, "force") {
-					values = append(values, value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05"))
-					goto end
-				}
+				// 	if value.Field(i).Interface().(time.Time).IsZero() && !strings.Contains(tag, "force") {
+				// 		continue
+				// 	}
+				// 	if value.Field(i).Interface().(time.Time).IsZero() && strings.Contains(tag, "force") {
+				// 		values = append(values, value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05"))
+				// 		goto end
+				// 	}
 				tv := value.Field(i).Interface().(time.Time).Format("2006-01-02 15:04:05")
 				values = append(values, tv)
-				goto end
+				keys = append(keys, c.name+"=?")
+				continue
+				// 	goto end
 			}
 			if reflect.DeepEqual(value.Field(i).Interface(), empty) {
 				continue
@@ -426,18 +556,16 @@ func updateInterfaceSql(dest interface{}, cmd string, args ...interface{}) (stri
 			// keys = append(keys, signs[0]+"=?")
 			send, err := json.Marshal(value.Field(i).Interface())
 			if err != nil {
-				values = append(values, "")
-				goto end
+				fmt.Println(err)
 			}
 			values = append(values, string(send))
 		default:
 			return "", nil, errors.New("not support , you can add issue: " + kind.String())
 		}
-	end:
-		if strings.Contains(tag, "counter") {
-			keys = append(keys, fmt.Sprintf("%s=%s+?", signs[0], signs[0]))
+		if c.isCounter {
+			keys = append(keys, fmt.Sprintf("%s=%s+?", c.name, c.name))
 		} else {
-			keys = append(keys, signs[0]+"=?")
+			keys = append(keys, c.name+"=?")
 		}
 	}
 
