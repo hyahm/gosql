@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // 增加 default: 使用默认值
@@ -184,12 +185,27 @@ type column struct {
 	updated bool
 }
 
+func camelToSnake(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if unicode.IsUpper(r) {
+			if i > 0 {
+				result.WriteRune('_')
+			}
+			result.WriteRune(unicode.ToLower(r))
+		} else {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
 func (c *column) getcolumn(field reflect.StructField) {
 	c.getDefaultColumn(field.Tag)
 	c.getGormColumn(field.Tag)
 	c.getXormColumn(field.Tag)
 	if c.name == "" {
-		c.name = strings.ToLower(field.Name)
+		c.name = camelToSnake(field.Name)
 	}
 }
 
@@ -233,9 +249,6 @@ func (c *column) getDefaultColumn(tag reflect.StructTag) {
 		// 冒号切割
 		tmp := strings.Split(v, ":")
 		if len(tmp) == 2 {
-			if c.name == "" && tmp[0] == "column" {
-				c.name = strings.ToLower(tmp[1])
-			}
 			if !c.hasDefault && tmp[0] == "default" {
 				c.hasDefault = true
 				c.defaultValue = tmp[1]
@@ -253,6 +266,16 @@ func (c *column) getDefaultColumn(tag reflect.StructTag) {
 		if !c.updated && strings.Contains(v, "updated") {
 			c.updated = true
 		}
+		if c.name == "" {
+			for _, v := range tmp {
+				if len(v) > 2 {
+					if v[0:1] == "'" && v[len(v)-1:] == "'" {
+						c.name = v[1 : len(v)-1]
+					}
+				}
+			}
+		}
+
 	}
 }
 

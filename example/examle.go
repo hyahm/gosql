@@ -78,8 +78,9 @@ func main() {
 		UserName: "cander",
 		Password: "123456",
 		Debug:    true,
+		DbName:   "dxzg",
 	}
-	db, err := conf.CreateDB("dxzg")
+	db, err := conf.NewMysqlDb()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,14 +93,7 @@ func main() {
 		}
 	}
 
-	ps := &MpMessageList{
-		ID:          38,
-		TypeID:      1,
-		ContentType: 1,
-		Content:     "图片地址",
-		Title:       "测试",
-		SendTime:    time.Now(),
-	}
+	ps := &MpMessageList{}
 	// err = db.InsertInterfaceWithID(ps, "insert into mp_message_list($key) values($value)").Err
 
 	// if err != nil {
@@ -114,7 +108,7 @@ func main() {
 	// if res.Err != nil {
 	// 	log.Fatal(res.Err)
 	// }
-	err = db.Select(ps, "select * from mp_message_list where id=?", 38).Err
+	err = db.Select(ps, "select * from mp_message_list order by id desc limit 1").Err
 	if err != nil {
 		log.Fatal(err)
 	}

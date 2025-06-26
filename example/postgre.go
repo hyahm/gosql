@@ -26,9 +26,9 @@ create table account (
 
 func main() {
 	var conf = &gosql.Sqlconfig{
-		Host:     "192.168.101.13",
+		Host:     "192.168.3.110",
 		Port:     5432,
-		UserName: "test",
+		UserName: "cander",
 		Password: "123456",
 		DbName:   "test",
 		Debug:    true,
