@@ -34,7 +34,7 @@ type Person struct {
 
 
 func main() {
-	conf := Sqlconfig{
+	conf := gosql.Sqlconfig{
 		UserName:        "test",
 		Password:        "123456",
 		Port:            3306,

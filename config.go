@@ -81,6 +81,16 @@ func (s *Sqlconfig) NewMysqlDb() (*Db, error) {
 	return s.conndb(s.GetMysqlDataSource())
 }
 
+func NewMysqlDb(dns string) (*Db, error) {
+	s := &Sqlconfig{}
+	return s.conndb(dns)
+}
+
+func NewPGDb(dns string) (*PGConn, error) {
+	s := &Sqlconfig{}
+	return s.connPg(dns)
+}
+
 func (s *Sqlconfig) NewPGPool() (*PGConn, error) {
 	return s.connPg(s.GetPostgreDNS())
 }
